@@ -139,7 +139,7 @@ export function getPlaybookEmailHtml(recipientEmail) {
               <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="border-radius: 10px; border: 2px solid #00ff88;">
-                    <a href="https://calendly.com" 
+                    <a href="https://eecyoutube-f2ca3821d0db.herokuapp.com/book" 
                        target="_blank"
                        style="display: inline-block; padding: 12px 30px; font-size: 14px; font-weight: 600; color: #00ff88; text-decoration: none;">
                       📞 Book Your Free Call
