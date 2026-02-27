@@ -1,41 +1,36 @@
-import { motion } from 'framer-motion';
-import { Youtube, Twitter, Instagram, Mail } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Mail } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
 
   const footerLinks = {
     product: [
-      { label: 'Features', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Case Studies', href: '#' },
-      { label: 'Testimonials', href: '#' },
+      { label: 'Features', href: '#features', anchor: true },
+      { label: 'Pricing', href: '#pricing', anchor: true },
+      { label: 'Case Studies', href: '/case-studies' },
+      { label: 'Testimonials', href: '/testimonials' },
     ],
     company: [
-      { label: 'About', href: '#' },
-      { label: 'Blog', href: '#' },
-      { label: 'Careers', href: '#' },
-      { label: 'Contact', href: '#cta' },
+      { label: 'About', href: '/about' },
+      { label: 'Blog', href: '/blog' },
+      { label: 'Careers', href: '/careers' },
+      { label: 'Contact', href: '#cta', anchor: true },
     ],
     resources: [
-      { label: 'Playbook', href: '#cta' },
-      { label: 'Guides', href: '#' },
-      { label: 'Templates', href: '#' },
-      { label: 'Webinars', href: '#' },
+      { label: 'Playbook', href: '#cta', anchor: true },
+      { label: 'Guides', href: '/guides' },
+      { label: 'Templates', href: '/templates' },
+      { label: 'Webinars', href: '/webinars' },
     ],
     legal: [
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
-      { label: 'Cookies', href: '#' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+      { label: 'Cookies', href: '/cookies' },
     ],
   };
-
-  const socialLinks = [
-    { icon: Youtube, href: '#', label: 'YouTube' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Instagram, href: '#', label: 'Instagram' },
-    { icon: Mail, href: 'mailto:hello@eec.community', label: 'Email' },
-  ];
 
   return (
     <footer className="bg-[#0a0a0a] border-t border-white/5 pt-16 pb-8">
@@ -43,94 +38,54 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2">
-            <a href="#" className="flex items-center gap-2 mb-4">
+            <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#00ff88] to-[#00d4aa] flex items-center justify-center">
                 <span className="text-[#0a0a0a] font-bold text-xl">E</span>
               </div>
               <span className="font-bold text-xl">EEC</span>
-            </a>
+            </Link>
             <p className="text-[#a0a0a0] text-sm mb-6 max-w-xs">
               Helping gaming creators own their audience and build sustainable
               businesses beyond the algorithm.
             </p>
             <div className="flex items-center gap-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-[#a0a0a0] hover:bg-[#00ff88]/10 hover:text-[#00ff88] transition-all duration-300"
-                >
-                  <social.icon className="w-5 h-5" />
-                </a>
-              ))}
+              <a
+                href={isHomePage ? '#cta' : '/#cta'}
+                aria-label="Contact us"
+                className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-[#a0a0a0] hover:bg-[#00ff88]/10 hover:text-[#00ff88] transition-all duration-300"
+              >
+                <Mail className="w-5 h-5" />
+              </a>
             </div>
           </div>
 
           {/* Links */}
-          <div>
-            <h4 className="font-semibold mb-4">Product</h4>
-            <ul className="space-y-3">
-              {footerLinks.product.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-4">Company</h4>
-            <ul className="space-y-3">
-              {footerLinks.company.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-4">Resources</h4>
-            <ul className="space-y-3">
-              {footerLinks.resources.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-4">Legal</h4>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {Object.entries(footerLinks).map(([category, links]) => (
+            <div key={category}>
+              <h4 className="font-semibold mb-4 capitalize">{category}</h4>
+              <ul className="space-y-3">
+                {links.map((link) => (
+                  <li key={link.label}>
+                    {link.anchor ? (
+                      <a
+                        href={isHomePage ? link.href : `/${link.href}`}
+                        className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        to={link.href}
+                        className="text-sm text-[#a0a0a0] hover:text-[#00ff88] transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         {/* Bottom */}

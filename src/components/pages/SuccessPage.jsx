@@ -7,7 +7,7 @@ import { api } from '../../lib/api';
 // Configure the total number of ebook pages here.
 // Place images named page-1.png, page-2.png, etc. in /public/ebook/pages/
 // Place the zip file as /public/ebook/download/eec-playbook.zip
-const TOTAL_PAGES = 47;
+const TOTAL_PAGES = 12;
 
 const SuccessPage = () => {
   const [showViewer, setShowViewer] = useState(false);
@@ -146,7 +146,7 @@ const SuccessPage = () => {
                   <div className="relative z-10 text-center p-8">
                     <div className="text-6xl mb-4">📖</div>
                     <h3 className="text-2xl font-bold mb-2">The EEC Playbook</h3>
-                    <p className="text-[#a0a0a0] text-sm">47 Pages of Actionable Gaming Creator Strategies</p>
+                    <p className="text-[#a0a0a0] text-sm">12 Pages of Actionable Gaming Creator Strategies</p>
                   </div>
 
                   {/* Hover overlay */}
@@ -200,7 +200,7 @@ const SuccessPage = () => {
                 className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4"
               >
                 {[
-                  { emoji: '📖', title: 'Read the Playbook', desc: 'Go through all 47 pages and take notes' },
+                  { emoji: '📖', title: 'Read the Playbook', desc: 'Go through all 12 pages and take notes' },
                   { emoji: '🚀', title: 'Pick One Strategy', desc: 'Choose the strategy that fits your channel' },
                   { emoji: '📞', title: 'Book a Free Call', desc: 'Get a personalized plan from our team' },
                 ].map((step, i) => (

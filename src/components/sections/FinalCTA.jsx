@@ -82,7 +82,7 @@ const FinalCTA = () => {
               <h3 className="text-2xl font-bold mb-3">Get the Free EEC Playbook</h3>
               <p className="text-[#a0a0a0] mb-6">
                 The exact framework we use to help gaming creators build 6-figure
-                email lists. 47 pages of actionable strategies.
+                email lists. 12 pages of actionable strategies.
               </p>
 
               {isSubmitting ? (

@@ -103,7 +103,7 @@ export function getPlaybookEmailHtml(recipientEmail) {
                       <tr>
                         <td style="padding: 8px 0; font-size: 15px; color: #d0d0d0;">
                           <span style="color: #00ff88; margin-right: 8px;">✓</span>
-                          47 pages of actionable strategies you can implement today
+                          12 pages of actionable strategies you can implement today
                         </td>
                       </tr>
                     </table>
