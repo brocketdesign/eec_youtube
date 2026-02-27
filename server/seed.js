@@ -14,6 +14,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import Admin from './models/Admin.js';
+import Slot from './models/Slot.js';
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) {
@@ -25,10 +26,36 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || 'admin@eec.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
+/**
+ * Generate slots for the next `numDays` weekdays at the given times.
+ */
+function generateSlots(numDays = 10, times = ['10:00', '11:00', '14:00', '15:00', '16:00']) {
+  const slots = [];
+  const today = new Date();
+  let added = 0;
+  let offset = 1; // start from tomorrow
+
+  while (added < numDays) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
+    const day = d.getDay(); // 0=Sun, 6=Sat
+    if (day !== 0 && day !== 6) {
+      const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      for (const time of times) {
+        slots.push({ date: dateStr, time });
+      }
+      added++;
+    }
+    offset++;
+  }
+  return slots;
+}
+
 async function seed() {
   await mongoose.connect(MONGO_URI);
   console.log('✅ Connected to MongoDB');
 
+  // --- Admin ---
   const existing = await Admin.findOne({ username: ADMIN_USERNAME });
   if (existing) {
     console.log(`ℹ️  Admin "${ADMIN_USERNAME}" already exists — skipping.`);
@@ -42,6 +69,16 @@ async function seed() {
     console.log(`   Username : ${ADMIN_USERNAME}`);
     console.log(`   Email    : ${ADMIN_EMAIL}`);
     console.log(`   Password : ${ADMIN_PASSWORD}`);
+  }
+
+  // --- Slots ---
+  const existingSlots = await Slot.countDocuments();
+  if (existingSlots > 0) {
+    console.log(`ℹ️  ${existingSlots} slot(s) already exist — skipping slot seed.`);
+  } else {
+    const slots = generateSlots();
+    await Slot.insertMany(slots);
+    console.log(`✅ ${slots.length} slots created (${slots.length / 5} weekdays × 5 time slots each)`);
   }
 
   await mongoose.disconnect();
