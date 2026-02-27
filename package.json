@@ -10,7 +10,8 @@
     "seed": "node server/seed.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server/index.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
