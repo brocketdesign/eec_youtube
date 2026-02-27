@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import { api } from '../../lib/api';
 
 // Configure the total number of ebook pages here.
-// Place images named page-1.jpg, page-2.jpg, etc. in /public/ebook/pages/
+// Place images named page-1.png, page-2.png, etc. in /public/ebook/pages/
 // Place the zip file as /public/ebook/download/eec-playbook.zip
 const TOTAL_PAGES = 47;
 
@@ -19,7 +19,7 @@ const SuccessPage = () => {
   const params = new URLSearchParams(window.location.search);
   const email = params.get('email') || '';
 
-  const pages = Array.from({ length: TOTAL_PAGES }, (_, i) => `/ebook/pages/page-${i + 1}.jpg`);
+  const pages = Array.from({ length: TOTAL_PAGES }, (_, i) => `/ebook/pages/page-${i + 1}.png`);
 
   useEffect(() => {
     // Preload first few pages
@@ -134,7 +134,7 @@ const SuccessPage = () => {
                   
                   {/* Try to show the first page as cover */}
                   <img 
-                    src="/ebook/pages/page-1.jpg" 
+                    src="/ebook/pages/page-1.png" 
                     alt="EEC Playbook Cover"
                     className="absolute inset-0 w-full h-full object-contain"
                     onError={(e) => {
@@ -305,7 +305,7 @@ const SuccessPage = () => {
                     onLoad={() => setImagesLoaded((prev) => ({ ...prev, [currentPage]: true }))}
                     onError={(e) => {
                       e.target.src = '';
-                      e.target.alt = `Page ${currentPage} — Image not found. Add page-${currentPage}.jpg to /public/ebook/pages/`;
+                      e.target.alt = `Page ${currentPage} — Image not found. Add page-${currentPage}.png to /public/ebook/pages/`;
                     }}
                   />
                 </AnimatePresence>
