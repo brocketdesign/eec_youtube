@@ -1,0 +1,59 @@
+/* App-specific styles */
+
+/* Ensure smooth scrolling for the entire app */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom selection color */
+::selection {
+  background-color: #00ff88;
+  color: #0a0a0a;
+}
+
+/* Focus visible styles for accessibility */
+:focus-visible {
+  outline: 2px solid #00ff88;
+  outline-offset: 2px;
+}
+
+/* Remove default button styles */
+button {
+  font-family: inherit;
+}
+
+/* Ensure images don't overflow */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Custom cursor for interactive elements */
+a,
+button {
+  cursor: pointer;
+}
+
+/* Prevent text selection on UI elements */
+.no-select {
+  user-select: none;
+}
+
+/* Loading state */
+.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Responsive typography adjustments */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1536px) {
+  html {
+    font-size: 18px;
+  }
+}
