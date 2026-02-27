@@ -3,11 +3,16 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import { Resend } from 'resend';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getPlaybookEmailHtml } from './email-template.js';
 import Admin from './models/Admin.js';
 import Slot from './models/Slot.js';
 import Booking from './models/Booking.js';
 import EbookDownload from './models/EbookDownload.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +42,9 @@ const FROM_EMAIL = process.env.FROM_EMAIL || 'EEC Marketing <eecmarketing@vibeda
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the React frontend build
+app.use(express.static(path.join(__dirname, '../dist')));
 
 // ---------------------------------------------------------------------------
 // Admin auth middleware — validates password against hashed DB record
@@ -450,6 +458,17 @@ app.get('/api/admin/ebook-downloads', adminAuth, async (_req, res) => {
     console.error('Error fetching ebook downloads:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Catch-all handler: serve React app for any non-API route
+// ---------------------------------------------------------------------------
+app.get('*', (req, res) => {
+  // Don't interfere with API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API route not found' });
+  }
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // ---------------------------------------------------------------------------
