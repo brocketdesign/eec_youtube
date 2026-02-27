@@ -463,7 +463,7 @@ app.get('/api/admin/ebook-downloads', adminAuth, async (_req, res) => {
 // ---------------------------------------------------------------------------
 // Catch-all handler: serve React app for any non-API route
 // ---------------------------------------------------------------------------
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   // Don't interfere with API routes
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API route not found' });
