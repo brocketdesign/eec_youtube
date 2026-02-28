@@ -104,4 +104,34 @@ export const api = {
     fetch(`${API_BASE}/api/admin/ebook-downloads`, {
       headers: { 'x-admin-password': password },
     }).then((r) => r.json()),
+
+  // ---- API Keys ----
+  adminGetApiKeys: (password) =>
+    fetch(`${API_BASE}/api/admin/api-keys`, {
+      headers: { 'x-admin-password': password },
+    }).then((r) => r.json()),
+
+  adminCreateApiKey: (password, name) =>
+    fetch(`${API_BASE}/api/admin/api-keys`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': password,
+      },
+      body: JSON.stringify({ name }),
+    }).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || 'Failed to create API key');
+      return body;
+    }),
+
+  adminRevokeApiKey: (password, id) =>
+    fetch(`${API_BASE}/api/admin/api-keys/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-password': password },
+    }).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || 'Failed to revoke API key');
+      return body;
+    }),
 };

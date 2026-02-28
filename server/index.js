@@ -10,6 +10,7 @@ import Admin from './models/Admin.js';
 import Slot from './models/Slot.js';
 import Booking from './models/Booking.js';
 import EbookDownload from './models/EbookDownload.js';
+import ApiKey from './models/ApiKey.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +63,27 @@ const adminAuth = async (req, res, next) => {
     next();
   } catch {
     res.status(500).json({ error: 'Auth error' });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// API Key auth middleware — validates Bearer token against hashed DB record
+// ---------------------------------------------------------------------------
+const apiKeyAuth = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid API key. Use: Authorization: Bearer <your-api-key>' });
+  }
+  const rawKey = authHeader.slice(7);
+  try {
+    const apiKey = await ApiKey.findByKey(rawKey);
+    if (!apiKey) return res.status(401).json({ error: 'Invalid or revoked API key' });
+    apiKey.lastUsedAt = new Date();
+    await apiKey.save();
+    req.apiKey = apiKey;
+    next();
+  } catch {
+    res.status(500).json({ error: 'API key auth error' });
   }
 };
 
@@ -456,6 +478,270 @@ app.get('/api/admin/ebook-downloads', adminAuth, async (_req, res) => {
     });
   } catch (err) {
     console.error('Error fetching ebook downloads:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ADMIN — API Key Management
+// ---------------------------------------------------------------------------
+
+// List all API keys
+app.get('/api/admin/api-keys', adminAuth, async (_req, res) => {
+  try {
+    const keys = await ApiKey.find({}).sort({ createdAt: -1 }).lean();
+    res.json(
+      keys.map((k) => ({
+        id: k._id.toString(),
+        name: k.name,
+        keyPrefix: k.keyPrefix,
+        isActive: k.isActive,
+        lastUsedAt: k.lastUsedAt,
+        createdAt: k.createdAt,
+      })),
+    );
+  } catch (err) {
+    console.error('Error fetching API keys:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new API key
+app.post('/api/admin/api-keys', adminAuth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'API key name is required' });
+    }
+    const { rawKey, doc } = await ApiKey.generateKey(name.trim());
+    res.status(201).json({
+      id: doc._id.toString(),
+      name: doc.name,
+      keyPrefix: doc.keyPrefix,
+      isActive: doc.isActive,
+      createdAt: doc.createdAt,
+      rawKey, // Only returned once at creation
+    });
+  } catch (err) {
+    console.error('Error creating API key:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Revoke (deactivate) an API key
+app.delete('/api/admin/api-keys/:id', adminAuth, async (req, res) => {
+  try {
+    const key = await ApiKey.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true },
+    );
+    if (!key) return res.status(404).json({ error: 'API key not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error revoking API key:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PUBLIC API — Authenticated via API Key (Bearer token)
+// ---------------------------------------------------------------------------
+
+// GET /api/v1/stats — Dashboard statistics overview
+app.get('/api/v1/stats', apiKeyAuth, async (_req, res) => {
+  try {
+    const now = new Date();
+    const [totalSlots, totalBookings, totalDownloads, bookings, slots] = await Promise.all([
+      Slot.countDocuments(),
+      Booking.countDocuments(),
+      EbookDownload.countDocuments(),
+      Booking.find({}).lean(),
+      Slot.find({}).lean(),
+    ]);
+
+    const bookedSlotIds = new Set(bookings.map((b) => b.slot.toString()));
+    const availableSlots = slots.filter(
+      (s) => !bookedSlotIds.has(s._id.toString()) &&
+        new Date(`${s.date}T${s.time}`) > now
+    ).length;
+    const contactedCount = bookings.filter((b) => b.contactedAt).length;
+    const pendingCount = bookings.filter((b) => !b.contactedAt).length;
+
+    res.json({
+      totalSlots,
+      availableSlots,
+      totalBookings,
+      contactedBookings: contactedCount,
+      pendingBookings: pendingCount,
+      totalEbookDownloads: totalDownloads,
+    });
+  } catch (err) {
+    console.error('API v1 stats error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/schedule — List all schedule slots
+app.get('/api/v1/schedule', apiKeyAuth, async (req, res) => {
+  try {
+    const { date, available } = req.query;
+    const filter = {};
+    if (date) filter.date = date;
+
+    const slots = await Slot.find(filter).sort({ date: 1, time: 1 }).lean();
+    const bookedSlotIds = new Set(
+      (await Booking.find({}, 'slot').lean()).map((b) => b.slot.toString()),
+    );
+
+    let result = slots.map((s) => ({
+      id: s._id.toString(),
+      date: s.date,
+      time: s.time,
+      isBooked: bookedSlotIds.has(s._id.toString()),
+      createdAt: s.createdAt,
+    }));
+
+    if (available === 'true') result = result.filter((s) => !s.isBooked);
+    if (available === 'false') result = result.filter((s) => s.isBooked);
+
+    res.json({ total: result.length, slots: result });
+  } catch (err) {
+    console.error('API v1 schedule error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/v1/schedule — Create time slots
+app.post('/api/v1/schedule', apiKeyAuth, async (req, res) => {
+  try {
+    const { date, times } = req.body;
+    if (!date || !Array.isArray(times) || times.length === 0) {
+      return res.status(400).json({ error: 'date (YYYY-MM-DD) and times (array of HH:mm) are required' });
+    }
+
+    const existing = await Slot.find({ date }, 'time').lean();
+    const existingTimes = new Set(existing.map((s) => s.time));
+    const toInsert = times.filter((t) => !existingTimes.has(t)).map((time) => ({ date, time }));
+
+    const newSlots = await Slot.insertMany(toInsert, { ordered: false }).catch((err) => {
+      if (err.code === 11000) return err.insertedDocs || [];
+      throw err;
+    });
+
+    res.status(201).json({
+      created: (Array.isArray(newSlots) ? newSlots : []).map((s) => ({
+        id: s._id.toString(),
+        date: s.date,
+        time: s.time,
+        createdAt: s.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error('API v1 create schedule error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/v1/schedule/:id — Delete a time slot
+app.delete('/api/v1/schedule/:id', apiKeyAuth, async (req, res) => {
+  try {
+    const booked = await Booking.findOne({ slot: req.params.id });
+    if (booked) return res.status(409).json({ error: 'Cannot delete a booked slot' });
+
+    const deleted = await Slot.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Slot not found' });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('API v1 delete slot error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/bookings — List all bookings
+app.get('/api/v1/bookings', apiKeyAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const bookings = await Booking.find({}).sort({ createdAt: -1 }).lean();
+
+    let result = bookings.map((b) => ({
+      id: b._id.toString(),
+      slotId: b.slot.toString(),
+      name: b.name,
+      email: b.email,
+      date: b.date,
+      time: b.time,
+      createdAt: b.createdAt,
+      contactedAt: b.contactedAt || null,
+    }));
+
+    if (status === 'contacted') result = result.filter((b) => b.contactedAt);
+    if (status === 'pending') result = result.filter((b) => !b.contactedAt);
+
+    res.json({ total: result.length, bookings: result });
+  } catch (err) {
+    console.error('API v1 bookings error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/bookings/:id — Get a single booking
+app.get('/api/v1/bookings/:id', apiKeyAuth, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).lean();
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    res.json({
+      id: booking._id.toString(),
+      slotId: booking.slot.toString(),
+      name: booking.name,
+      email: booking.email,
+      date: booking.date,
+      time: booking.time,
+      createdAt: booking.createdAt,
+      contactedAt: booking.contactedAt || null,
+    });
+  } catch (err) {
+    console.error('API v1 booking detail error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/v1/bookings/:id/contacted — Mark booking as contacted
+app.patch('/api/v1/bookings/:id/contacted', apiKeyAuth, async (req, res) => {
+  try {
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      { contactedAt: new Date() },
+      { new: true },
+    );
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    res.json({
+      id: booking._id.toString(),
+      contactedAt: booking.contactedAt,
+      success: true,
+    });
+  } catch (err) {
+    console.error('API v1 mark contacted error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/downloads — List ebook downloads
+app.get('/api/v1/downloads', apiKeyAuth, async (_req, res) => {
+  try {
+    const downloads = await EbookDownload.find({}).sort({ downloadedAt: -1 }).lean();
+    res.json({
+      total: downloads.length,
+      downloads: downloads.map((d) => ({
+        id: d._id.toString(),
+        email: d.email,
+        downloadedAt: d.downloadedAt,
+      })),
+    });
+  } catch (err) {
+    console.error('API v1 downloads error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

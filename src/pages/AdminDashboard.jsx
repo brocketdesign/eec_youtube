@@ -25,6 +25,12 @@ import {
   BookOpen,
   Download,
   Save,
+  Key,
+  Copy,
+  FileText,
+  Clipboard,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -167,6 +173,15 @@ export default function AdminDashboard() {
   // Ebook downloads
   const [ebookDownloads, setEbookDownloads] = useState({ total: 0, downloads: [] });
 
+  // API Keys
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState(null);
+  const [copiedKeyId, setCopiedKeyId] = useState(null);
+  const [copiedDocId, setCopiedDocId] = useState(null);
+  const [expandedEndpoint, setExpandedEndpoint] = useState(null);
+
   // Add slot form
   const [addDate, setAddDate] = useState('');
   const [addTimes, setAddTimes] = useState([]);
@@ -185,17 +200,19 @@ export default function AdminDashboard() {
     if (!password) return;
     setLoading(true);
     try {
-      const [sched, bkgs, notif, ebook] = await Promise.all([
+      const [sched, bkgs, notif, ebook, keys] = await Promise.all([
         api.adminGetSchedule(password),
         api.adminGetBookings(password),
         api.adminGetNotificationEmail(password),
         api.adminGetEbookDownloads(password),
+        api.adminGetApiKeys(password),
       ]);
       setSchedule(sched);
       setBookings(bkgs);
       setNotifEmail(notif.notificationEmail || '');
       setNotifEmailInput(notif.notificationEmail || '');
       setEbookDownloads(ebook);
+      setApiKeys(keys);
     } catch {
       showMessage('Failed to load data', 'error');
     } finally {
@@ -245,6 +262,44 @@ export default function AdminDashboard() {
 
   const toggleTime = (t) =>
     setAddTimes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+
+  /* ----- API Keys ------------------------------------------------ */
+  const handleCreateApiKey = async () => {
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
+    try {
+      const result = await api.adminCreateApiKey(password, newKeyName.trim());
+      setNewlyCreatedKey(result);
+      setNewKeyName('');
+      fetchAll();
+      showMessage('API key created! Copy it now — it won\'t be shown again.');
+    } catch (err) {
+      showMessage(err.message, 'error');
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (id) => {
+    try {
+      await api.adminRevokeApiKey(password, id);
+      showMessage('API key revoked');
+      fetchAll();
+    } catch (err) {
+      showMessage(err.message, 'error');
+    }
+  };
+
+  const copyToClipboard = async (text, id, type = 'key') => {
+    await navigator.clipboard.writeText(text);
+    if (type === 'key') {
+      setCopiedKeyId(id);
+      setTimeout(() => setCopiedKeyId(null), 2000);
+    } else {
+      setCopiedDocId(id);
+      setTimeout(() => setCopiedDocId(null), 2000);
+    }
+  };
 
   /* ----- Notification email -------------------------------------- */
   const handleSaveNotifEmail = async () => {
@@ -726,14 +781,15 @@ export default function AdminDashboard() {
 
         {/* ===================== SETTINGS TAB ===================== */}
         {tab === 'settings' && (
-          <div>
+          <div className="space-y-8">
             <div className="mb-6">
               <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
                 <Settings className="w-5 h-5 text-[#a78bfa]" /> Settings
               </h2>
-              <p className="text-[#666] text-sm">Configure your admin preferences.</p>
+              <p className="text-[#666] text-sm">Configure your admin preferences and API access.</p>
             </div>
 
+            {/* --- Notification Email --- */}
             <div className="bg-[#111] border border-[#222] rounded-2xl p-6 max-w-lg">
               <h3 className="font-semibold text-base flex items-center gap-2 mb-1">
                 <Mail className="w-4 h-4 text-[#00ff88]" /> Booking Notification Email
@@ -770,6 +826,453 @@ export default function AdminDashboard() {
                   Currently sending notifications to: <span className="text-[#00ff88]">{notifEmail}</span>
                 </p>
               )}
+            </div>
+
+            {/* --- API Keys Section --- */}
+            <div className="bg-[#111] border border-[#222] rounded-2xl p-6">
+              <h3 className="font-semibold text-base flex items-center gap-2 mb-1">
+                <Key className="w-4 h-4 text-[#f59e0b]" /> API Keys
+              </h3>
+              <p className="text-[#666] text-sm mb-5">
+                Create API keys to access your data programmatically. Keys authenticate via <code className="bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[#60a5fa] text-xs">Authorization: Bearer &lt;key&gt;</code> header.
+              </p>
+
+              {/* Create new key */}
+              <div className="flex gap-3 mb-6">
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Key name (e.g. My Integration)"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateApiKey()}
+                  className="flex-1 bg-[#0a0a0a] border border-[#333] rounded-xl px-4 py-3 text-white placeholder:text-[#444] focus:outline-none focus:border-[#f59e0b] transition-colors text-sm"
+                />
+                <button
+                  onClick={handleCreateApiKey}
+                  disabled={creatingKey || !newKeyName.trim()}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
+                    creatingKey || !newKeyName.trim()
+                      ? 'bg-[#1a1a1a] text-[#666] cursor-not-allowed'
+                      : 'bg-gradient-to-r from-[#f59e0b] to-[#f97316] text-[#0a0a0a] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]'
+                  }`}
+                >
+                  {creatingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Create Key
+                </button>
+              </div>
+
+              {/* Newly created key banner */}
+              {newlyCreatedKey && (
+                <div className="mb-6 bg-[#f59e0b]/10 border border-[#f59e0b]/30 rounded-xl p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-[#f59e0b]" />
+                      <span className="font-semibold text-sm text-[#f59e0b]">
+                        Save your API key now — it won't be shown again!
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setNewlyCreatedKey(null)}
+                      className="text-[#666] hover:text-white p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-[#0a0a0a] border border-[#333] rounded-lg px-3 py-2 text-[#00ff88] text-xs font-mono break-all select-all">
+                      {newlyCreatedKey.rawKey}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(newlyCreatedKey.rawKey, 'new', 'key')}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[#1a1a1a] text-white hover:bg-[#222] transition-all shrink-0"
+                    >
+                      {copiedKeyId === 'new' ? <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff88]" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKeyId === 'new' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Key list */}
+              {apiKeys.length > 0 && (
+                <div className="border border-[#222] rounded-xl overflow-hidden mb-6">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#222] text-left text-[#666] text-xs uppercase tracking-wider bg-[#0e0e0e]">
+                        <th className="px-4 py-2.5 font-medium">Name</th>
+                        <th className="px-4 py-2.5 font-medium">Key Prefix</th>
+                        <th className="px-4 py-2.5 font-medium">Status</th>
+                        <th className="px-4 py-2.5 font-medium">Last Used</th>
+                        <th className="px-4 py-2.5 font-medium">Created</th>
+                        <th className="px-4 py-2.5 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1a1a1a]">
+                      {apiKeys.map((k) => (
+                        <tr key={k.id} className="hover:bg-[#0e0e0e] transition-colors">
+                          <td className="px-4 py-3 font-medium text-white">{k.name}</td>
+                          <td className="px-4 py-3">
+                            <code className="text-[#a0a0a0] text-xs font-mono">{k.keyPrefix}...</code>
+                          </td>
+                          <td className="px-4 py-3">
+                            {k.isActive ? (
+                              <span className="inline-flex items-center gap-1 text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-0.5 rounded-full font-medium">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs bg-red-400/10 text-red-400 px-2 py-0.5 rounded-full font-medium">
+                                Revoked
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-[#666] text-xs">
+                            {k.lastUsedAt ? fmtDateTime(k.lastUsedAt) : 'Never'}
+                          </td>
+                          <td className="px-4 py-3 text-[#666] text-xs">{fmtDateTime(k.createdAt)}</td>
+                          <td className="px-4 py-3">
+                            {k.isActive && (
+                              <button
+                                onClick={() => handleRevokeApiKey(k.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-400/10 transition-all"
+                              >
+                                <Trash2 className="w-3 h-3" /> Revoke
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {apiKeys.length === 0 && (
+                <div className="text-center py-8 bg-[#0e0e0e] border border-[#1a1a1a] rounded-xl mb-6">
+                  <Key className="w-8 h-8 text-[#333] mx-auto mb-2" />
+                  <p className="text-[#666] text-sm">No API keys yet. Create one above to get started.</p>
+                </div>
+              )}
+
+              {/* ============ API Documentation ============ */}
+              <div className="border-t border-[#222] pt-6">
+                <h3 className="font-semibold text-base flex items-center gap-2 mb-1">
+                  <FileText className="w-4 h-4 text-[#60a5fa]" /> API Documentation
+                </h3>
+                <p className="text-[#666] text-sm mb-5">
+                  All endpoints use <code className="bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[#60a5fa] text-xs">Authorization: Bearer &lt;your-api-key&gt;</code> header for authentication. Base URL: <code className="bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[#a78bfa] text-xs">{window.location.origin}</code>
+                </p>
+
+                <div className="space-y-3">
+                  {[
+                    {
+                      id: 'stats',
+                      method: 'GET',
+                      path: '/api/v1/stats',
+                      title: 'Dashboard Statistics',
+                      description: 'Get an overview of all application statistics: total slots, available slots, bookings, contacted/pending bookings, and ebook downloads.',
+                      params: 'None',
+                      response: `{
+  "totalSlots": 24,
+  "availableSlots": 12,
+  "totalBookings": 8,
+  "contactedBookings": 5,
+  "pendingBookings": 3,
+  "totalEbookDownloads": 42
+}`,
+                      curl: `curl -X GET '${window.location.origin}/api/v1/stats' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'schedule-list',
+                      method: 'GET',
+                      path: '/api/v1/schedule',
+                      title: 'List Schedule Slots',
+                      description: 'Retrieve all time slots. Filter by date or availability status.',
+                      params: 'Query params: ?date=YYYY-MM-DD (optional), ?available=true|false (optional)',
+                      response: `{
+  "total": 12,
+  "slots": [
+    {
+      "id": "abc123",
+      "date": "2026-03-15",
+      "time": "09:00",
+      "isBooked": false,
+      "createdAt": "2026-03-01T10:00:00Z"
+    }
+  ]
+}`,
+                      curl: `curl -X GET '${window.location.origin}/api/v1/schedule?available=true' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'schedule-create',
+                      method: 'POST',
+                      path: '/api/v1/schedule',
+                      title: 'Create Time Slots',
+                      description: 'Add new time slots for a specific date. Duplicate times are silently skipped.',
+                      params: 'Body (JSON): { "date": "YYYY-MM-DD", "times": ["HH:mm", "HH:mm", ...] }',
+                      response: `{
+  "created": [
+    {
+      "id": "abc123",
+      "date": "2026-03-15",
+      "time": "09:00",
+      "createdAt": "2026-03-01T10:00:00Z"
+    }
+  ]
+}`,
+                      curl: `curl -X POST '${window.location.origin}/api/v1/schedule' \\
+  -H 'Authorization: Bearer YOUR_API_KEY' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"date":"2026-03-15","times":["09:00","09:30","10:00"]}'`,
+                    },
+                    {
+                      id: 'schedule-delete',
+                      method: 'DELETE',
+                      path: '/api/v1/schedule/:id',
+                      title: 'Delete Time Slot',
+                      description: 'Delete an unbooked time slot by its ID. Booked slots cannot be deleted.',
+                      params: 'URL param: :id (slot ID)',
+                      response: `{ "success": true }`,
+                      curl: `curl -X DELETE '${window.location.origin}/api/v1/schedule/SLOT_ID' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'bookings-list',
+                      method: 'GET',
+                      path: '/api/v1/bookings',
+                      title: 'List Bookings',
+                      description: 'Retrieve all reservations/bookings. Filter by status.',
+                      params: 'Query params: ?status=contacted|pending (optional)',
+                      response: `{
+  "total": 8,
+  "bookings": [
+    {
+      "id": "def456",
+      "slotId": "abc123",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "date": "2026-03-15",
+      "time": "09:00",
+      "createdAt": "2026-03-10T14:30:00Z",
+      "contactedAt": null
+    }
+  ]
+}`,
+                      curl: `curl -X GET '${window.location.origin}/api/v1/bookings?status=pending' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'bookings-detail',
+                      method: 'GET',
+                      path: '/api/v1/bookings/:id',
+                      title: 'Get Booking Details',
+                      description: 'Retrieve a single booking/reservation by its ID.',
+                      params: 'URL param: :id (booking ID)',
+                      response: `{
+  "id": "def456",
+  "slotId": "abc123",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "date": "2026-03-15",
+  "time": "09:00",
+  "createdAt": "2026-03-10T14:30:00Z",
+  "contactedAt": null
+}`,
+                      curl: `curl -X GET '${window.location.origin}/api/v1/bookings/BOOKING_ID' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'bookings-contacted',
+                      method: 'PATCH',
+                      path: '/api/v1/bookings/:id/contacted',
+                      title: 'Mark Booking as Contacted',
+                      description: 'Mark a reservation as contacted. Sets a contactedAt timestamp.',
+                      params: 'URL param: :id (booking ID)',
+                      response: `{
+  "id": "def456",
+  "contactedAt": "2026-03-11T09:00:00Z",
+  "success": true
+}`,
+                      curl: `curl -X PATCH '${window.location.origin}/api/v1/bookings/BOOKING_ID/contacted' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                    {
+                      id: 'downloads-list',
+                      method: 'GET',
+                      path: '/api/v1/downloads',
+                      title: 'List Ebook Downloads',
+                      description: 'Retrieve all ebook/playbook download records with emails and timestamps.',
+                      params: 'None',
+                      response: `{
+  "total": 42,
+  "downloads": [
+    {
+      "id": "ghi789",
+      "email": "reader@example.com",
+      "downloadedAt": "2026-03-08T16:45:00Z"
+    }
+  ]
+}`,
+                      curl: `curl -X GET '${window.location.origin}/api/v1/downloads' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'`,
+                    },
+                  ].map((endpoint) => {
+                    const methodColors = {
+                      GET: 'bg-[#00ff88]/10 text-[#00ff88] border-[#00ff88]/20',
+                      POST: 'bg-[#60a5fa]/10 text-[#60a5fa] border-[#60a5fa]/20',
+                      DELETE: 'bg-red-400/10 text-red-400 border-red-400/20',
+                      PATCH: 'bg-[#f59e0b]/10 text-[#f59e0b] border-[#f59e0b]/20',
+                      PUT: 'bg-[#a78bfa]/10 text-[#a78bfa] border-[#a78bfa]/20',
+                    };
+
+                    const fullDoc = `# ${endpoint.title}
+
+**${endpoint.method}** \`${endpoint.path}\`
+
+${endpoint.description}
+
+## Authentication
+\`\`\`
+Authorization: Bearer YOUR_API_KEY
+\`\`\`
+
+## Parameters
+${endpoint.params}
+
+## Example Request
+\`\`\`bash
+${endpoint.curl}
+\`\`\`
+
+## Example Response
+\`\`\`json
+${endpoint.response}
+\`\`\`
+`;
+
+                    return (
+                      <div
+                        key={endpoint.id}
+                        className="border border-[#222] rounded-xl overflow-hidden"
+                      >
+                        <button
+                          onClick={() => setExpandedEndpoint(expandedEndpoint === endpoint.id ? null : endpoint.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 bg-[#0e0e0e] hover:bg-[#151515] transition-colors text-left"
+                        >
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${methodColors[endpoint.method]}`}>
+                            {endpoint.method}
+                          </span>
+                          <code className="text-sm text-[#a0a0a0] font-mono flex-1">{endpoint.path}</code>
+                          <span className="text-xs text-[#666] hidden sm:inline">{endpoint.title}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(fullDoc, endpoint.id, 'doc');
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#1a1a1a] hover:bg-[#252525] text-[#a78bfa] transition-all shrink-0 border border-[#333]"
+                            title="Copy documentation as Markdown for AI"
+                          >
+                            {copiedDocId === endpoint.id ? (
+                              <><CheckCircle2 className="w-3 h-3 text-[#00ff88]" /> Copied!</>
+                            ) : (
+                              <><Clipboard className="w-3 h-3" /> Copy for AI</>
+                            )}
+                          </button>
+                          {expandedEndpoint === endpoint.id
+                            ? <ChevronDown className="w-4 h-4 text-[#666] shrink-0" />
+                            : <ChevronRight className="w-4 h-4 text-[#666] shrink-0" />
+                          }
+                        </button>
+
+                        <AnimatePresence>
+                          {expandedEndpoint === endpoint.id && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-4 py-4 space-y-4 border-t border-[#222] bg-[#0a0a0a]">
+                                <p className="text-[#a0a0a0] text-sm">{endpoint.description}</p>
+
+                                <div>
+                                  <span className="text-xs font-semibold text-[#666] uppercase tracking-wider">Parameters</span>
+                                  <p className="text-sm text-[#a0a0a0] mt-1">{endpoint.params}</p>
+                                </div>
+
+                                <div>
+                                  <span className="text-xs font-semibold text-[#666] uppercase tracking-wider">cURL Example</span>
+                                  <div className="relative mt-1">
+                                    <pre className="bg-[#111] border border-[#222] rounded-lg p-3 text-xs text-[#a0a0a0] font-mono overflow-x-auto whitespace-pre-wrap">
+                                      {endpoint.curl}
+                                    </pre>
+                                    <button
+                                      onClick={() => copyToClipboard(endpoint.curl, `curl-${endpoint.id}`, 'doc')}
+                                      className="absolute top-2 right-2 p-1.5 rounded-md bg-[#1a1a1a] hover:bg-[#252525] text-[#666] hover:text-white transition-all"
+                                      title="Copy cURL command"
+                                    >
+                                      {copiedDocId === `curl-${endpoint.id}`
+                                        ? <CheckCircle2 className="w-3 h-3 text-[#00ff88]" />
+                                        : <Copy className="w-3 h-3" />
+                                      }
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <span className="text-xs font-semibold text-[#666] uppercase tracking-wider">Response Example</span>
+                                  <pre className="bg-[#111] border border-[#222] rounded-lg p-3 mt-1 text-xs text-[#00ff88] font-mono overflow-x-auto whitespace-pre-wrap">
+                                    {endpoint.response}
+                                  </pre>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Copy All Documentation */}
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => {
+                      const allDocs = `# EEC API Documentation
+
+**Base URL:** ${window.location.origin}
+**Authentication:** All endpoints require an API key sent via the Authorization header.
+
+\`\`\`
+Authorization: Bearer YOUR_API_KEY
+\`\`\`
+
+---
+
+${[
+  { method: 'GET', path: '/api/v1/stats', title: 'Dashboard Statistics', description: 'Get an overview of all application statistics.', params: 'None' },
+  { method: 'GET', path: '/api/v1/schedule', title: 'List Schedule Slots', description: 'Retrieve all time slots. Filter by date or availability.', params: '?date=YYYY-MM-DD, ?available=true|false' },
+  { method: 'POST', path: '/api/v1/schedule', title: 'Create Time Slots', description: 'Add new time slots for a date.', params: 'Body: { "date": "YYYY-MM-DD", "times": ["HH:mm"] }' },
+  { method: 'DELETE', path: '/api/v1/schedule/:id', title: 'Delete Time Slot', description: 'Delete an unbooked time slot.', params: ':id (slot ID)' },
+  { method: 'GET', path: '/api/v1/bookings', title: 'List Bookings', description: 'Retrieve all reservations.', params: '?status=contacted|pending' },
+  { method: 'GET', path: '/api/v1/bookings/:id', title: 'Get Booking Details', description: 'Get a single booking by ID.', params: ':id (booking ID)' },
+  { method: 'PATCH', path: '/api/v1/bookings/:id/contacted', title: 'Mark Booking as Contacted', description: 'Mark a reservation as contacted.', params: ':id (booking ID)' },
+  { method: 'GET', path: '/api/v1/downloads', title: 'List Ebook Downloads', description: 'Retrieve all ebook download records.', params: 'None' },
+].map((e) => `## ${e.title}\n\n**${e.method}** \`${e.path}\`\n\n${e.description}\n\n**Parameters:** ${e.params}\n`).join('\n---\n\n')}`;
+                      copyToClipboard(allDocs, 'all-docs', 'doc');
+                    }}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] hover:bg-[#a78bfa]/20 transition-all"
+                  >
+                    {copiedDocId === 'all-docs' ? (
+                      <><CheckCircle2 className="w-4 h-4 text-[#00ff88]" /> Copied All Documentation!</>
+                    ) : (
+                      <><Clipboard className="w-4 h-4" /> Copy All API Docs for AI</>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
