@@ -11,6 +11,8 @@ import Slot from './models/Slot.js';
 import Booking from './models/Booking.js';
 import EbookDownload from './models/EbookDownload.js';
 import ApiKey from './models/ApiKey.js';
+import onboardingRoutes from './routes/onboarding.js';
+import productRoutes from './routes/products.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +44,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || 'EEC Marketing <eecmarketing@vibedash.net>';
 
 app.use(cors());
+
+// Stripe webhook needs raw body — must be before express.json()
+app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // Serve static files from the React frontend build
@@ -747,6 +753,12 @@ app.get('/api/v1/downloads', apiKeyAuth, async (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ONBOARDING, PAYMENT & DASHBOARD ROUTES
+// ---------------------------------------------------------------------------
+app.use('/api', onboardingRoutes);
+app.use('/api', productRoutes);
+
 // Catch-all handler: serve React app for any non-API route
 // ---------------------------------------------------------------------------
 app.get('/{*path}', (req, res) => {

@@ -12,9 +12,17 @@
     "heroku-postbuild": "npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test:health": "node server/tests/healthcheck.js",
+    "test:keys": "node server/tests/test-platform.js keys",
+    "test:brevo": "node server/tests/test-platform.js brevo",
+    "test:ai": "node server/tests/test-platform.js ai",
+    "test:pipeline": "node server/tests/test-platform.js pipeline",
+    "test:all": "node server/tests/test-platform.js all"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@getbrevo/brevo": "^4.0.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -22,10 +30,13 @@
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
     "mongoose": "^9.2.3",
+    "openai": "^6.27.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
-    "resend": "^6.9.2"
+    "resend": "^6.9.2",
+    "stripe": "^20.4.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

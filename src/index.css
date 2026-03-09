@@ -214,3 +214,8 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Onboarding form inputs */
+.input-field {
+  @apply w-full px-4 py-3 bg-[#111] border border-white/10 rounded-xl text-white placeholder-gray-600 focus:border-emerald-500/50 focus:outline-none transition-colors;
+}

@@ -58,7 +58,10 @@ async function seed() {
   // --- Admin ---
   const existing = await Admin.findOne({ username: ADMIN_USERNAME });
   if (existing) {
-    console.log(`ℹ️  Admin "${ADMIN_USERNAME}" already exists — skipping.`);
+    existing.passwordHash = ADMIN_PASSWORD;   // re-hashed by pre-save hook
+    existing.email = ADMIN_EMAIL;
+    await existing.save();
+    console.log(`✅ Admin "${ADMIN_USERNAME}" updated with new credentials.`);
   } else {
     await Admin.create({
       username: ADMIN_USERNAME,
