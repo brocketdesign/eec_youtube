@@ -160,7 +160,7 @@ function AdminLogin({ onLogin }) {
 /* ------------------------------------------------------------------ */
 export default function AdminDashboard() {
   const [password, setPassword] = useState(null);
-  const [tab, setTab] = useState('schedule'); // schedule | bookings | downloads | settings
+  const [tab, setTab] = useState('schedule'); // schedule | bookings | downloads | newsletter | settings
   const [schedule, setSchedule] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -172,6 +172,9 @@ export default function AdminDashboard() {
 
   // Ebook downloads
   const [ebookDownloads, setEbookDownloads] = useState({ total: 0, downloads: [] });
+
+  // Newsletter subscribers
+  const [newsletterSubs, setNewsletterSubs] = useState({ total: 0, subscribers: [] });
 
   // API Keys
   const [apiKeys, setApiKeys] = useState([]);
@@ -200,12 +203,13 @@ export default function AdminDashboard() {
     if (!password) return;
     setLoading(true);
     try {
-      const [sched, bkgs, notif, ebook, keys] = await Promise.all([
+      const [sched, bkgs, notif, ebook, keys, nlSubs] = await Promise.all([
         api.adminGetSchedule(password),
         api.adminGetBookings(password),
         api.adminGetNotificationEmail(password),
         api.adminGetEbookDownloads(password),
         api.adminGetApiKeys(password),
+        api.adminGetNewsletterSubscribers(password),
       ]);
       setSchedule(sched);
       setBookings(bkgs);
@@ -213,6 +217,7 @@ export default function AdminDashboard() {
       setNotifEmailInput(notif.notificationEmail || '');
       setEbookDownloads(ebook);
       setApiKeys(keys);
+      setNewsletterSubs(nlSubs);
     } catch {
       showMessage('Failed to load data', 'error');
     } finally {
@@ -395,12 +400,13 @@ export default function AdminDashboard() {
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           {[
             { label: 'Total Slots', value: totalSlots, icon: Calendar, color: '#00ff88' },
             { label: 'Booked', value: bookedSlots, icon: Users, color: '#00d4aa' },
             { label: 'Pending Contact', value: pendingContact, icon: Phone, color: '#ff6b35' },
             { label: 'Ebook Downloads', value: totalDownloads, icon: Download, color: '#60a5fa' },
+            { label: 'Newsletter Subs', value: newsletterSubs.total, icon: Mail, color: '#a78bfa' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div
               key={label}
@@ -428,6 +434,7 @@ export default function AdminDashboard() {
             { id: 'schedule', label: 'Schedule', icon: Calendar },
             { id: 'bookings', label: 'Bookings', icon: Users },
             { id: 'downloads', label: 'Downloads', icon: BookOpen },
+            { id: 'newsletter', label: 'Newsletter', icon: Mail },
             { id: 'settings', label: 'Settings', icon: Settings },
           ].map(({ id, label, icon: Icon }) => (
             <button
@@ -779,7 +786,94 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ===================== SETTINGS TAB ===================== */}
+        {/* ===================== NEWSLETTER TAB ===================== */}
+        {tab === 'newsletter' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+                <Mail className="w-5 h-5 text-[#a78bfa]" /> Newsletter Subscribers
+              </h2>
+              <p className="text-[#666] text-sm">
+                {newsletterSubs.total} subscriber{newsletterSubs.total !== 1 ? 's' : ''} have joined your newsletter.
+              </p>
+            </div>
+
+            {newsletterSubs.subscribers.length > 0 ? (
+              <div className="bg-[#111] border border-[#222] rounded-2xl overflow-hidden">
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#222] text-left text-[#666] text-xs uppercase tracking-wider bg-[#0e0e0e]">
+                        <th className="px-5 py-3 font-medium">#</th>
+                        <th className="px-5 py-3 font-medium">Email</th>
+                        <th className="px-5 py-3 font-medium">YouTube Channel</th>
+                        <th className="px-5 py-3 font-medium">Registered</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1a1a1a]">
+                      {newsletterSubs.subscribers.map((s, idx) => (
+                        <tr key={s.id} className="hover:bg-[#0e0e0e] transition-colors">
+                          <td className="px-5 py-3 text-[#666] text-xs">{idx + 1}</td>
+                          <td className="px-5 py-3">
+                            <span className="flex items-center gap-2">
+                              <Mail className="w-3.5 h-3.5 text-[#a78bfa]" />
+                              <span className="text-white font-medium">{s.email}</span>
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {s.channelUrl ? (
+                              <a
+                                href={s.channelUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#60a5fa] hover:underline text-xs truncate block max-w-[250px]"
+                              >
+                                {s.channelUrl}
+                              </a>
+                            ) : (
+                              <span className="text-[#444] text-xs">Not provided</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-[#666] text-xs">{fmtDateTime(s.registeredAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-[#1a1a1a]">
+                  {newsletterSubs.subscribers.map((s) => (
+                    <div key={s.id} className="p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-[#a78bfa]" />
+                        <span className="text-white font-medium text-sm">{s.email}</span>
+                      </div>
+                      {s.channelUrl && (
+                        <a
+                          href={s.channelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#60a5fa] hover:underline text-xs block truncate"
+                        >
+                          {s.channelUrl}
+                        </a>
+                      )}
+                      <p className="text-[#666] text-xs">{fmtDateTime(s.registeredAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-[#111] border border-[#222] rounded-2xl">
+                <Mail className="w-10 h-10 text-[#333] mx-auto mb-3" />
+                <p className="text-[#666] text-sm">No newsletter subscribers yet.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===================== SETTINGS TAB ===================== */
         {tab === 'settings' && (
           <div className="space-y-8">
             <div className="mb-6">

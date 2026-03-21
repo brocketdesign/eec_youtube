@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Zap, BarChart3, Clock, Shield, Users, ChevronDown, Play, CheckCircle, ArrowRight, Star } from 'lucide-react';
 import ParticleBackground from '../components/ui/ParticleBackground';
+import NewsletterPopup from '../components/ui/NewsletterPopup';
 
 const features = [
   { icon: Zap, title: 'AI-Powered Setup', desc: 'Our AI analyzes your channel, brand, and audience to create a complete email system in minutes.' },
@@ -51,6 +52,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
       <ParticleBackground />
+      <NewsletterPopup />
 
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5">

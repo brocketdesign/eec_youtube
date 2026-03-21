@@ -255,4 +255,28 @@ export const api = {
       if (!r.ok) throw new Error(body.error || 'Failed to deactivate product');
       return body;
     }),
+
+  // ---- Newsletter ----
+  subscribeNewsletter: (data) =>
+    fetch(`${API_BASE}/api/newsletter/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || 'Subscription failed');
+      return body;
+    }),
+
+  getNewsletterHeroImage: () =>
+    fetch(`${API_BASE}/api/newsletter/hero-image`).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error || 'Image generation failed');
+      return body;
+    }),
+
+  adminGetNewsletterSubscribers: (password) =>
+    fetch(`${API_BASE}/api/admin/newsletter-subscribers`, {
+      headers: { 'x-admin-password': password },
+    }).then((r) => r.json()),
 };

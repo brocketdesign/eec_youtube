@@ -11,8 +11,10 @@ import Slot from './models/Slot.js';
 import Booking from './models/Booking.js';
 import EbookDownload from './models/EbookDownload.js';
 import ApiKey from './models/ApiKey.js';
+import NewsletterSubscriber from './models/NewsletterSubscriber.js';
 import onboardingRoutes from './routes/onboarding.js';
 import productRoutes from './routes/products.js';
+import OpenAI from 'openai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -748,6 +750,117 @@ app.get('/api/v1/downloads', apiKeyAuth, async (_req, res) => {
     });
   } catch (err) {
     console.error('API v1 downloads error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// NEWSLETTER — Public subscribe + Admin endpoints + Grok image generation
+// ---------------------------------------------------------------------------
+
+// Helper: lazily create Grok client for image generation
+let _grokImgClient = null;
+function getGrokImageClient() {
+  if (!_grokImgClient && process.env.GROK_API_KEY) {
+    _grokImgClient = new OpenAI({
+      apiKey: process.env.GROK_API_KEY,
+      baseURL: 'https://api.x.ai/v1',
+    });
+  }
+  return _grokImgClient;
+}
+
+// PUBLIC: Subscribe to newsletter
+app.post('/api/newsletter/subscribe', async (req, res) => {
+  try {
+    const { email, channelUrl } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const subscriber = await NewsletterSubscriber.findOneAndUpdate(
+      { email },
+      { email, channelUrl: channelUrl || '', registeredAt: new Date() },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    // Notify admin via Resend
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      try {
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: [adminEmail],
+          subject: '🎉 New EEC Newsletter Subscriber!',
+          html: `
+            <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;">
+              <h2 style="color:#10b981;">New Newsletter Subscriber</h2>
+              <table style="width:100%;border-collapse:collapse;">
+                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Email</td><td style="padding:8px 0;">${subscriber.email}</td></tr>
+                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">YouTube Channel</td><td style="padding:8px 0;">${subscriber.channelUrl || 'Not provided'}</td></tr>
+                <tr><td style="padding:8px 0;font-weight:bold;color:#666;">Registered</td><td style="padding:8px 0;">${new Date(subscriber.registeredAt).toLocaleString()}</td></tr>
+              </table>
+              <hr style="border:none;border-top:1px solid #eee;margin:16px 0;">
+              <p style="color:#999;font-size:13px;">EEC Newsletter System</p>
+            </div>
+          `,
+        });
+        console.log(`📧 Admin notified about new subscriber: ${subscriber.email}`);
+      } catch (emailErr) {
+        console.error('Failed to notify admin:', emailErr.message);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.json({ success: true, message: 'Already subscribed' });
+    }
+    console.error('Newsletter subscribe error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUBLIC: Generate newsletter hero image via Grok (Aurora)
+app.get('/api/newsletter/hero-image', async (_req, res) => {
+  try {
+    const client = getGrokImageClient();
+    if (!client) {
+      return res.status(503).json({ error: 'Image generation not available' });
+    }
+
+    const response = await client.images.generate({
+      model: 'grok-2-image',
+      prompt: 'A futuristic, sleek digital artwork showing a glowing email envelope merging with a YouTube play button, surrounded by vibrant neon circuits and data streams, dark background with emerald green and electric blue accents, modern tech aesthetic, high quality digital art',
+      n: 1,
+    });
+
+    const imageUrl = response.data?.[0]?.url;
+    if (!imageUrl) {
+      return res.status(500).json({ error: 'Image generation failed' });
+    }
+    res.json({ imageUrl });
+  } catch (err) {
+    console.error('Grok image generation error:', err.message);
+    res.status(500).json({ error: 'Image generation failed' });
+  }
+});
+
+// ADMIN: Get all newsletter subscribers
+app.get('/api/admin/newsletter-subscribers', adminAuth, async (_req, res) => {
+  try {
+    const subscribers = await NewsletterSubscriber.find({}).sort({ registeredAt: -1 }).lean();
+    res.json({
+      total: subscribers.length,
+      subscribers: subscribers.map((s) => ({
+        id: s._id.toString(),
+        email: s.email,
+        channelUrl: s.channelUrl,
+        registeredAt: s.registeredAt,
+      })),
+    });
+  } catch (err) {
+    console.error('Error fetching newsletter subscribers:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
